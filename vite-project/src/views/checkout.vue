@@ -1,0 +1,179 @@
+<template>
+  <div class="checkout">
+
+    <h1>Checkout</h1>
+
+    <!-- CUSTOMER INFO -->
+    <div class="form">
+      <input v-model="name" placeholder="Full Name" />
+      <input v-model="address" placeholder="Address" />
+    </div>
+
+    <!-- ORDER SUMMARY -->
+    <div class="summary">
+      <div v-for="item in items" :key="item.id" class="item">
+        <span>{{ item.title }}</span>
+        <span>{{ item.qty }} x ${{ item.price }}</span>
+      </div>
+
+      <h3>Total: ${{ total.toFixed(2) }}</h3>
+    </div>
+
+    <!-- STRIPE CARD -->
+    <div id="card-element" class="card-box"></div>
+
+    <!-- PAY BUTTON -->
+    <button @click="pay" class="btn">
+      🟢 Pay Now
+    </button>
+
+  </div>
+</template>
+
+<script setup>
+import { ref, onMounted } from 'vue'
+import { useCartStore } from '../stores/cart'
+import { storeToRefs } from 'pinia'
+import { useRouter } from 'vue-router'
+import { loadStripe } from '@stripe/stripe-js'
+
+const name = ref('')
+const address = ref('')
+
+const cartStore = useCartStore()
+const { items, total } = storeToRefs(cartStore)
+
+const router = useRouter()
+
+let stripe = null
+let cardElement = null
+
+// INIT STRIPE
+onMounted(async () => {
+  stripe = await loadStripe('pk_test_your_public_key_here')
+
+  const elements = stripe.elements()
+  cardElement = elements.create('card')
+
+  cardElement.mount('#card-element')
+})
+
+// PAY FUNCTION
+async function pay() {
+  console.log("PAY BUTTON CLICKED")
+
+  if (!name.value || !address.value) {
+    alert('Please fill all fields')
+    return
+  }
+
+  if (!stripe || !cardElement) {
+    alert('Stripe is not ready yet')
+    return
+  }
+
+  try {
+    // 1. CREATE PAYMENT INTENT (backend)
+    const res = await fetch('http://localhost:3000/create-payment-intent', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        amount: total.value
+      })
+    })
+
+    const data = await res.json()
+
+    if (!data.clientSecret) {
+      alert('Payment failed: no client secret')
+      return
+    }
+
+    // 2. CONFIRM PAYMENT
+    const result = await stripe.confirmCardPayment(data.clientSecret, {
+      payment_method: {
+        card: cardElement
+      }
+    })
+
+    if (result.error) {
+      alert(result.error.message)
+      return
+    }
+
+    // 3. SUCCESS
+    if (result.paymentIntent.status === 'succeeded') {
+
+      alert('Payment successful 🎉')
+
+      localStorage.setItem('lastOrder', JSON.stringify({
+        items: items.value,
+        total: total.value,
+        customer: {
+          name: name.value,
+          address: address.value
+        }
+      }))
+
+      cartStore.items = []
+      cartStore.save?.()
+
+      router.push('/success')
+    }
+
+  } catch (err) {
+    console.log(err)
+    alert('Payment error occurred')
+  }
+}
+</script>
+
+<style scoped>
+.checkout {
+  max-width: 600px;
+  margin: auto;
+  padding: 20px;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+input {
+  padding: 10px;
+}
+
+.summary {
+  margin-bottom: 20px;
+}
+
+.item {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.card-box {
+  padding: 10px;
+  border: 1px solid #ccc;
+  margin-bottom: 20px;
+}
+
+.btn {
+  background: #d62828;
+  color: white;
+  border: none;
+  padding: 12px;
+  width: 100%;
+  cursor: pointer;
+  border-radius: 6px;
+}
+
+.btn:hover {
+  background: #fcbf49;
+  color: black;
+}
+</style>
