@@ -93,6 +93,7 @@ async function pay() {
 
   try {
     // 1. CREATE PAYMENT INTENT (backend)
+    console.log('Creating payment intent for amount:', total.value)
     const serverUrl = import.meta.env.VITE_SERVER_URL || 'http://localhost:3000'
     const res = await fetch(`${serverUrl}/create-payment-intent`, {
       method: 'POST',
@@ -102,7 +103,15 @@ async function pay() {
       })
     })
 
+    if (!res.ok) {
+      const errorText = await res.text()
+      console.error('Backend error:', res.status, errorText)
+      alert(`Backend error: ${res.status} - ${errorText}`)
+      return
+    }
+
     const data = await res.json()
+    console.log('Backend response:', data)
 
     if (!data.clientSecret) {
       alert('Payment failed: no client secret')
@@ -110,14 +119,18 @@ async function pay() {
     }
 
     // 2. CONFIRM PAYMENT
+    console.log('Confirming payment with clientSecret:', data.clientSecret.substring(0, 20) + '...')
     const result = await stripe.confirmCardPayment(data.clientSecret, {
       payment_method: {
         card: cardElement
       }
     })
 
+    console.log('Payment result:', result)
+
     if (result.error) {
-      alert(result.error.message)
+      console.error('Stripe error:', result.error)
+      alert(`Payment failed: ${result.error.message}`)
       return
     }
 
@@ -142,8 +155,8 @@ async function pay() {
     }
 
   } catch (err) {
-    console.log(err)
-    alert('Payment error occurred')
+    console.error('Payment error:', err)
+    alert(`Payment failed: ${err.message || 'Unknown error'}`)
   }
 }
 </script>
