@@ -78,7 +78,7 @@ onMounted(async () => {
   }
 })
 
-// PAY FUNCTION
+// PAY FUNCTION - Updated: 2026-05-05 12:00 UTC
 async function pay() {
   console.log("PAY BUTTON CLICKED")
   console.log("Stripe ready:", isStripeReady.value)
@@ -100,9 +100,18 @@ async function pay() {
     return
   }
 
+  // Check if card element is properly mounted
+  const cardElementContainer = document.getElementById('card-element')
+  if (!cardElementContainer || !cardElementContainer.hasChildNodes()) {
+    alert('Card input field not properly loaded. Please refresh the page.')
+    return
+  }
+
   try {
     // 1. CREATE PAYMENT INTENT (backend)
     console.log('Creating payment intent for amount:', total.value)
+    console.log('Server URL:', import.meta.env.VITE_SERVER_URL || 'http://localhost:3000')
+
     const serverUrl = import.meta.env.VITE_SERVER_URL || 'http://localhost:3000'
     const res = await fetch(`${serverUrl}/create-payment-intent`, {
       method: 'POST',
@@ -111,6 +120,9 @@ async function pay() {
         amount: total.value
       })
     })
+
+    console.log('Fetch response status:', res.status)
+    console.log('Fetch response ok:', res.ok)
 
     if (!res.ok) {
       const errorText = await res.text()
