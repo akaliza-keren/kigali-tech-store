@@ -22,9 +22,14 @@
     <!-- STRIPE CARD -->
     <div id="card-element" class="card-box"></div>
 
+    <!-- ERROR MESSAGE -->
+    <div v-if="stripeError" class="error-message">
+      ⚠️ {{ stripeError }}
+    </div>
+
     <!-- PAY BUTTON -->
-    <button @click="pay" class="btn">
-      🟢 Pay Now
+    <button @click="pay" :disabled="!isStripeReady" class="btn">
+      {{ isStripeReady ? '🟢 Pay Now' : '⏳ Loading Stripe...' }}
     </button>
 
   </div>
@@ -39,6 +44,8 @@ import { loadStripe } from '@stripe/stripe-js'
 
 const name = ref('')
 const address = ref('')
+const isStripeReady = ref(false)
+const stripeError = ref('')
 
 const cartStore = useCartStore()
 const { items, total } = storeToRefs(cartStore)
@@ -50,12 +57,24 @@ let cardElement = null
 
 // INIT STRIPE
 onMounted(async () => {
-  stripe = await loadStripe('pk_test_51TRRbY45pI4aCRB84ot3KhpeiWdJ4yfygtiFqtBoNyLsftYJWa2FwEKzf3FvUuuOPuHq2czghrLPyUashIBmbMrx00qAGIfPJB')
+  try {
+    stripe = await loadStripe('pk_test_51TRRbY45pI4aCRB84ot3KhpeiWdJ4yfygtiFqtBoNyLsftYJWa2FwEKzf3FvUuuOPuHq2czghrLPyUashIBmbMrx00qAGIfPJB')
 
-  const elements = stripe.elements()
-  cardElement     = elements.create('card')
+    if (!stripe) {
+      stripeError.value = 'Failed to load Stripe. Please refresh the page.'
+      return
+    }
 
-  cardElement.mount('#card-element')
+    const elements = stripe.elements()
+    cardElement = elements.create('card')
+
+    cardElement.mount('#card-element')
+    isStripeReady.value = true
+    console.log('✅ Stripe loaded successfully')
+  } catch (error) {
+    stripeError.value = 'Error loading Stripe: ' + error.message
+    console.error('❌ Stripe error:', error)
+  }
 })
 
 // PAY FUNCTION
@@ -67,8 +86,8 @@ async function pay() {
     return
   }
 
-  if (!stripe || !cardElement) {
-    alert('Stripe is not ready yet')
+  if (!isStripeReady.value) {
+    alert('Stripe is still loading. Please wait...')
     return
   }
 
@@ -173,8 +192,24 @@ input {
   border-radius: 6px;
 }
 
-.btn:hover {
+.btn:hover:not(:disabled) {
   background: #fcbf49;
   color: black;
+}
+
+.btn:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.error-message {
+  background: #ffe0e0;
+  border: 1px solid #d62828;
+  color: #d62828;
+  padding: 12px;
+  border-radius: 6px;
+  margin-bottom: 15px;
+  font-weight: bold;
 }
 </style>
