@@ -81,9 +81,10 @@ onMounted(async () => {
 // PAY FUNCTION - Updated: 2026-05-05 12:00 UTC
 async function pay() {
   console.log("PAY BUTTON CLICKED")
+  console.log("Environment check:")
+  console.log("- VITE_SERVER_URL:", import.meta.env.VITE_SERVER_URL)
+  console.log("- MODE:", import.meta.env.MODE)
   console.log("Stripe ready:", isStripeReady.value)
-  console.log("Stripe object:", !!stripe)
-  console.log("Card element:", !!cardElement)
 
   if (!name.value || !address.value) {
     alert('Please fill all fields')
