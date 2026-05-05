@@ -71,6 +71,7 @@ onMounted(async () => {
     cardElement.mount('#card-element')
     isStripeReady.value = true
     console.log('✅ Stripe loaded successfully')
+    console.log('Card element mounted to #card-element')
   } catch (error) {
     stripeError.value = 'Error loading Stripe: ' + error.message
     console.error('❌ Stripe error:', error)
@@ -80,6 +81,9 @@ onMounted(async () => {
 // PAY FUNCTION
 async function pay() {
   console.log("PAY BUTTON CLICKED")
+  console.log("Stripe ready:", isStripeReady.value)
+  console.log("Stripe object:", !!stripe)
+  console.log("Card element:", !!cardElement)
 
   if (!name.value || !address.value) {
     alert('Please fill all fields')
@@ -88,6 +92,11 @@ async function pay() {
 
   if (!isStripeReady.value) {
     alert('Stripe is still loading. Please wait...')
+    return
+  }
+
+  if (!cardElement) {
+    alert('Card input not ready. Please refresh the page.')
     return
   }
 
