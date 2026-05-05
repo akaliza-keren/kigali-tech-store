@@ -136,12 +136,13 @@ async function pay() {
         console.log('STEP 2: Confirming payment with Stripe...')
         
         // Get the return URL for 3D Secure redirects
-        const returnUrl = import.meta.env.VITE_APP_URL || window.location.origin
-        console.log('Return URL for 3D Secure:', returnUrl + '/success')
+        const appUrl = window.location.origin
+        const returnUrl = appUrl + '/success'
+        console.log('Return URL for 3D Secure:', returnUrl)
         
         const result = await stripe.confirmCardPayment(data.clientSecret, {
           payment_method: { card: cardElement },
-          return_url: returnUrl + '/success'
+          return_url: returnUrl
         })
 
         if (!result) {
