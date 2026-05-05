@@ -81,10 +81,9 @@ onMounted(async () => {
 // PAY FUNCTION - Updated: 2026-05-05 12:00 UTC
 async function pay() {
   console.log("PAY BUTTON CLICKED")
-  console.log("Environment check:")
-  console.log("- VITE_SERVER_URL:", import.meta.env.VITE_SERVER_URL)
-  console.log("- MODE:", import.meta.env.MODE)
   console.log("Stripe ready:", isStripeReady.value)
+  console.log("Stripe object:", !!stripe)
+  console.log("Card element:", !!cardElement)
 
   if (!name.value || !address.value) {
     alert('Please fill all fields')
@@ -109,76 +108,84 @@ async function pay() {
   }
 
   try {
-    // 1. CREATE PAYMENT INTENT (backend)
-    console.log('Creating payment intent for amount:', total.value)
-    console.log('Server URL:', import.meta.env.VITE_SERVER_URL || 'http://localhost:3000')
-
-    const serverUrl = import.meta.env.VITE_SERVER_URL || 'http://localhost:3000'
-    const res = await fetch(`${serverUrl}/create-payment-intent`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        amount: total.value
+    // STEP 1: CREATE PAYMENT INTENT
+    try {
+      console.log('STEP 1: Creating payment intent for $' + total.value)
+      const serverUrl = import.meta.env.VITE_SERVER_URL || 'http://localhost:3000'
+      console.log('Backend URL:', serverUrl)
+      
+      const res = await fetch(`${serverUrl}/create-payment-intent`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount: total.value })
       })
-    })
 
-    console.log('Fetch response status:', res.status)
-    console.log('Fetch response ok:', res.ok)
-
-    if (!res.ok) {
-      const errorText = await res.text()
-      console.error('Backend error:', res.status, errorText)
-      alert(`Backend error: ${res.status} - ${errorText}`)
-      return
-    }
-
-    const data = await res.json()
-    console.log('Backend response:', data)
-
-    if (!data.clientSecret) {
-      alert('Payment failed: no client secret')
-      return
-    }
-
-    // 2. CONFIRM PAYMENT
-    console.log('Confirming payment with clientSecret:', data.clientSecret.substring(0, 20) + '...')
-    const result = await stripe.confirmCardPayment(data.clientSecret, {
-      payment_method: {
-        card: cardElement
+      if (!res.ok) {
+        const errorText = await res.text()
+        throw new Error(`Backend returned ${res.status}: ${errorText}`)
       }
-    })
 
-    console.log('Payment result:', result)
+      const data = await res.json()
+      if (!data.clientSecret) {
+        throw new Error('No clientSecret returned from backend')
+      }
+      console.log('✅ Payment intent created:', data.clientSecret.substring(0, 30) + '...')
 
-    if (result.error) {
-      console.error('Stripe error:', result.error)
-      alert(`Payment failed: ${result.error.message}`)
-      return
-    }
+      // STEP 2: CONFIRM PAYMENT WITH STRIPE
+      try {
+        console.log('STEP 2: Confirming payment with Stripe...')
+        const result = await stripe.confirmCardPayment(data.clientSecret, {
+          payment_method: { card: cardElement }
+        })
 
-    // 3. SUCCESS
-    if (result.paymentIntent.status === 'succeeded') {
-
-      alert('Payment successful 🎉')
-
-      localStorage.setItem('lastOrder', JSON.stringify({
-        items: items.value,
-        total: total.value,
-        customer: {
-          name: name.value,
-          address: address.value
+        if (!result) {
+          throw new Error('No result from stripe.confirmCardPayment')
         }
-      }))
 
-      cartStore.items = []
-      cartStore.save?.()
+        console.log('Stripe response:', result)
 
-      router.push('/success')
+        if (result.error) {
+          throw new Error(`Stripe error: ${result.error.message} (Code: ${result.error.code})`)
+        }
+
+        if (!result.paymentIntent) {
+          throw new Error('No paymentIntent in result')
+        }
+
+        console.log('Payment intent status:', result.paymentIntent.status)
+
+        if (result.paymentIntent.status === 'succeeded') {
+          console.log('✅ PAYMENT SUCCESSFUL')
+          alert('Payment successful 🎉')
+
+          localStorage.setItem('lastOrder', JSON.stringify({
+            items: items.value,
+            total: total.value,
+            customer: { name: name.value, address: address.value }
+          }))
+
+          cartStore.items = []
+          cartStore.save?.()
+          router.push('/success')
+        } else {
+          throw new Error(`Payment status is ${result.paymentIntent.status}, expected succeeded`)
+        }
+
+      } catch (stripeErr) {
+        console.error('❌ STRIPE ERROR:', stripeErr.message)
+        throw stripeErr
+      }
+
+    } catch (backendErr) {
+      console.error('❌ BACKEND/PAYMENT ERROR:', backendErr.message)
+      throw backendErr
     }
 
   } catch (err) {
-    console.error('Payment error:', err)
-    alert(`Payment failed: ${err.message || 'Unknown error'}`)
+    console.error('❌ FINAL ERROR:', err)
+    console.error('Error details:', { message: err.message, stack: err.stack })
+    const errorMsg = err.message || 'Unknown error occurred'
+    alert(`❌ Payment failed: ${errorMsg}`)
   }
 }
 </script>
