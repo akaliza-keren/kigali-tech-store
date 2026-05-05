@@ -74,7 +74,8 @@ async function pay() {
 
   try {
     // 1. CREATE PAYMENT INTENT (backend)
-    const res = await fetch('http://localhost:3000/create-payment-intent', {
+    const serverUrl = import.meta.env.VITE_SERVER_URL || 'http://localhost:3000'
+    const res = await fetch(`${serverUrl}/create-payment-intent`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
