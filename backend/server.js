@@ -25,18 +25,19 @@ app.get("/", (req, res) => {
 /* ---------------- CREATE PAYMENT INTENT ---------------- */
 app.post("/create-payment-intent", async (req, res) => {
   try {
-    const { amount } = req.body;
+    const amount = Number(req.body.amount);
+    const amountInCents = Math.round(amount * 100);
 
-    console.log("📩 Incoming amount:", amount);
+    console.log("📩 Incoming amount:", req.body.amount, "=> cents:", amountInCents);
 
-    if (!amount || amount <= 0) {
+    if (!Number.isFinite(amount) || amount <= 0 || amountInCents <= 0) {
       return res.status(400).json({
-        error: "Invalid amount. Stop sending nonsense values.",
+        error: "Invalid amount. Send a positive numeric total in dollars.",
       });
     }
 
     const paymentIntent = await stripe.paymentIntents.create({
-      amount: Math.round(amount),
+      amount: amountInCents,
       currency: "usd",
       automatic_payment_methods: {
         enabled: true,

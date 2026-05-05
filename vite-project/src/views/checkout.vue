@@ -50,10 +50,10 @@ let cardElement = null
 
 // INIT STRIPE
 onMounted(async () => {
-  stripe = await loadStripe('pk_test_your_public_key_here')
+  stripe = await loadStripe('pk_test_51TRRbY45pI4aCRB84ot3KhpeiWdJ4yfygtiFqtBoNyLsftYJWa2FwEKzf3FvUuuOPuHq2czghrLPyUashIBmbMrx00qAGIfPJB')
 
   const elements = stripe.elements()
-  cardElement = elements.create('card')
+  cardElement     = elements.create('card')
 
   cardElement.mount('#card-element')
 })
